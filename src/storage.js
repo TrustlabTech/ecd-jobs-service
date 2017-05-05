@@ -11,20 +11,23 @@ const childSchema = {
     privkey: String,
     address: String,
   },
-  attendanceClaims: Array,
+  verifiableClaims: Array,
 }
 
 const childSchemaOptions = {
   collection: 'children'
 }
 
-const bulkAttendance = {
-  centreId: Number,
-  claims: Array,
-}
-
-const bulkAttendanceOptions = {
-  collection: 'bulkAttendances'
+const centreSchema = {
+  id: Number,
+  did: String,
+  ddo: String,
+  eth: {
+    pubkey: String,
+    privkey: String,
+    address: String,
+  },
+  verifiableClaims: Array,
 }
 
 export default class Storage {
@@ -54,7 +57,7 @@ export default class Storage {
       console.log('[INFO] Database connection opened successfully') // eslint-disable-line no-console
 
       this.childModel = this.provider.model('Child', new mongoose.Schema(childSchema, childSchemaOptions), 'children')
-      this.centreModel = this.provider.model('BulkAttendance', new mongoose.Schema(bulkAttendance, bulkAttendanceOptions), 'bulkAttendances')
+      this.centreModel = this.provider.model('Centre', new mongoose.Schema(centreSchema))
     })
 
     return this

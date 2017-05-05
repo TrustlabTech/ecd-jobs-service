@@ -27,8 +27,6 @@ export const EisWorker = (ownerAddress) => {
 export const EisEventWatcher = (RegistryInstance) => {
   return new Promise((resolve, reject) => {
     RegistryInstance.CreatedDID((error, result) => {
-      console.log('Event result')
-      console.log(result)
       if (error)
         reject(error)
       else

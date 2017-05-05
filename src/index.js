@@ -5,12 +5,17 @@ import kue from 'kue'
 import Web3 from 'web3'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
+import EthWallet from 'ethereumjs-wallet'
 /* libs / modules */
 import Logger from './logger'
 import StorageFactory from './storage'
-import { EisWorker, EisEventWatcher } from './eis.job'
+import { EisWorker, EisEventWatcher } from './workers/IdentityService'
 /* const/utils */
-import { eisJob } from './jobs'
+import {
+  IDENTITY_SERVICE_STAFF,
+  IDENTITY_SERVICE_CENTRES,
+  IDENTITY_SERVICE_CHILDREN,
+} from './jobs'
 import registryAbi from 'identity-service-wrapper/contracts/registry.abi'
 import registryAddress from 'identity-service-wrapper/contracts/registry.addr'
 
@@ -34,28 +39,66 @@ const queue = kue.createQueue({jobEvents: false})
 kue.app.set('title', 'ECD Jobs Service')
 kue.app.listen(3000)
 
-// run the process worker for EIS job
-queue.process(eisJob, async (job, done) => {
+// run events logger
+Logger(queue)
+
+// run workers
+queue.process(IDENTITY_SERVICE_CHILDREN, async (job, done) => {
   const objectId = mongoose.Types.ObjectId(job.data.objectId)
   try {
     // create DID
     const txid = await EisWorker(job.data.address)
     // fire up the wathcher
     const result = await EisEventWatcher(RegistryInstance)
-    // store did 
-    const successful = StorageProvider.getChildModel().findByIdAndUpdate(objectId, { did: result.args.did, ddo: result.args.ddo || '' }).exec()
+    // store did              
+    const successful = StorageProvider.getChildModel().findByIdAndUpdate(objectId, { did: 'did:' + result.args.did, ddo: result.args.ddo || '' }).exec()
 
     if (successful)
       return done(null, txid)
     else
-      return done(new Error('Coult not store child in API v2 datasource'))
+      return done(new Error('Could not process Digital Identity registration for child ' + job.data.objectId))
 
   } catch (e) {
     return done(new Error(e))
   }
 })
 
-// run events logger
-Logger(queue)
+queue.process(IDENTITY_SERVICE_CENTRES, async (job, done) => {
+  try {
+    // create a new Eth keypair first
+    const wallet = EthWallet.generate(),
+          pubkey = wallet.getPublicKeyString(),
+          privkey = wallet.getPrivateKeyString(),
+          address = wallet.getAddressString() 
+
+    // create DID
+    const txid = await EisWorker(address)
+    // fire up the wathcher
+    const result = await EisEventWatcher(RegistryInstance)
+    // centres do not exist yet, therefore we create (instead of update) the model
+    const CentreModel = StorageProvider.getCentreModel(),
+          centre = new CentreModel({
+            id: job.data.id,
+            did: result.args.did,
+            ddo: result.args.ddo || '',
+            eth: {
+              pubkey,
+              privkey,
+              address,
+            },
+            verifiableClaims: [],
+          })
+
+    const record = await centre.save()
+
+    if (record)
+      return done(null, txid)
+    else
+      return done(new Error('Could not process Digital Identity registration for centre ' + job.data.id))
+
+  } catch (e) {
+    return done(new Error(e))
+  }
+})
 
 
