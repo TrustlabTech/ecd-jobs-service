@@ -51,7 +51,9 @@ queue.process(IDENTITY_SERVICE_CHILDREN, async (job, done) => {
     // fire up the wathcher
     const result = await EisEventWatcher(RegistryInstance)
     // store did              
-    const successful = StorageProvider.getChildModel().findByIdAndUpdate(objectId, { did: 'did:' + result.args.did, ddo: result.args.ddo || '' }).exec()
+    const successful = StorageProvider.getChildModel()
+                                      .findByIdAndUpdate(objectId, { did: 'did:' + result.args.did, ddo: result.args.ddo || '' })
+                                      .exec()
 
     if (successful)
       return done(null, txid)
@@ -75,9 +77,12 @@ queue.process(IDENTITY_SERVICE_CENTRES, async (job, done) => {
     const txid = await EisWorker(address)
     // fire up the wathcher
     const result = await EisEventWatcher(RegistryInstance)
-    // centres do not exist yet, therefore we create (instead of update) the model
+    
+    // centres might not exist yet
     const CentreModel = StorageProvider.getCentreModel(),
-          centre = new CentreModel({
+          query = { id: job.data.id },
+          options = { upsert: true, new: true, setDefaultsOnInsert: false },
+          update = {
             id: job.data.id,
             did: result.args.did,
             ddo: result.args.ddo || '',
@@ -86,10 +91,9 @@ queue.process(IDENTITY_SERVICE_CENTRES, async (job, done) => {
               privkey,
               address,
             },
-            verifiableClaims: [],
-          })
+          }
 
-    const record = await centre.save()
+    const record = await CentreModel.findOneAndUpdate(query, update, options)
 
     if (record)
       return done(null, txid)
@@ -100,5 +104,3 @@ queue.process(IDENTITY_SERVICE_CENTRES, async (job, done) => {
     return done(new Error(e))
   }
 })
-
-

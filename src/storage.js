@@ -2,7 +2,13 @@
 
 import mongoose from 'mongoose'
 
-const childSchema = {
+const VCSchema = new mongoose.Schema({
+  hash: String,
+  claim: Object,
+  verifiableClaim: Object,
+})
+
+const childSchema = new mongoose.Schema({
   id: Number,
   did: String,
   ddo: String,
@@ -11,14 +17,12 @@ const childSchema = {
     privkey: String,
     address: String,
   },
-  verifiableClaims: Array,
-}
-
-const childSchemaOptions = {
+  verifiableClaims: [VCSchema],
+}, {
   collection: 'children'
-}
+})
 
-const centreSchema = {
+const centreSchema = new mongoose.Schema({
   id: Number,
   did: String,
   ddo: String,
@@ -27,10 +31,10 @@ const centreSchema = {
     privkey: String,
     address: String,
   },
-  verifiableClaims: Array,
-}
+  verifiableClaims: [VCSchema],
+})
 
-export default class Storage {
+export default class StorageProvider {
   constructor() {
     const 
       port = process.env.DB_PORT || 27017,
@@ -56,8 +60,8 @@ export default class Storage {
     db.once('open', () => {
       console.log('[INFO] Database connection opened successfully') // eslint-disable-line no-console
 
-      this.childModel = this.provider.model('Child', new mongoose.Schema(childSchema, childSchemaOptions), 'children')
-      this.centreModel = this.provider.model('Centre', new mongoose.Schema(centreSchema))
+      this.childModel = this.provider.model('Child', childSchema, 'children')
+      this.centreModel = this.provider.model('Centre', centreSchema)
     })
 
     return this
@@ -69,6 +73,10 @@ export default class Storage {
 
   getChildModel() {
     return this.childModel
+  }
+
+  getNewVCSchema(hash, claim, verifiableClaim) {
+    return new mongoose.Schema({ hash, claim, verifiableClaim })
   }
 
   getCentreModel() {
