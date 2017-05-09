@@ -2,25 +2,19 @@
 
 import EIS from 'identity-service-wrapper'
 
-export const EisWorker = (ownerAddress) => {
+export const EisWorker = (ownerAddress, ethProvider) => {
   return new Promise((resolve, reject) => {
-    try {
-      const eis = EIS('http://' + process.env.ETH_TX_HOST + ':' + process.env.ETH_TX_PORT)
-
-      eis.spawn(
-        process.env.EIS_ADMIN_ADDRESS,
-        ownerAddress,
-        process.env.EIS_FUNDER_PRIV,
-        (err, txid) => {
-          if (err)
-            reject(err)
-          else
-            resolve(txid)
-        }
-      )
-    } catch (e) {
-      reject(e)
-    }
+    EIS(ethProvider).spawn(
+      process.env.EIS_ADMIN_ADDRESS,
+      ownerAddress,
+      process.env.EIS_FUNDER_PRIV,
+      (err, txid) => {
+        if (err)
+          reject(err)
+        else
+          resolve(txid)
+      }
+    )
   })
 }
 
