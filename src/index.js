@@ -18,15 +18,15 @@ export const StorageProvider = new StorageFactory().init()
 export const EthProvider = new Web3(new Web3.providers.HttpProvider(gethHostLocation))
 
 // get the queue instance
-const queue = kue.createQueue({jobEvents: false})
+const Queue = kue.createQueue({jobEvents: false})
 
 // spin up dashboard and REST API
 kue.app.set('title', 'ECD Jobs Service')
 kue.app.listen(3000)
 
 // run events logger
-Logger(queue)
+Logger(Queue)
 
 // run workers
-new IdentityServiceQueue(queue, EthProvider, StorageProvider).init().runAll()
-new DeliveryServiceQueue(queue, EthProvider, StorageProvider).init().runAll()
+new IdentityServiceQueue(Queue, EthProvider, StorageProvider).init().runAll()
+new DeliveryServiceQueue(Queue, EthProvider, StorageProvider).init().runAll()

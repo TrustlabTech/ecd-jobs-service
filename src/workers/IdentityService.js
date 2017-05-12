@@ -4,7 +4,7 @@ import EIS from 'identity-service-wrapper'
 
 export const EisWorker = (ownerAddress, ethProvider) => {
   return new Promise((resolve, reject) => {
-    EIS(ethProvider).spawn(
+    EIS(ethProvider, false).spawn(
       process.env.EIS_ADMIN_ADDRESS,
       ownerAddress,
       process.env.EIS_FUNDER_PRIV,

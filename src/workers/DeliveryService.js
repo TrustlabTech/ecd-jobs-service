@@ -7,19 +7,40 @@ import deliveryServiceAbi from 'delivery-service-wrapper/contracts/DeliveryServi
 import deliveryServiceAddress from 'delivery-service-wrapper/contracts/DeliveryService.address'
 
 class DeliveryServiceEventWathcer {
-  constructor(registryInstance) {
+  constructor(registryInstance, deliveryServiceInstance) {
     this.registryInstance = registryInstance
-  }
+    this.deliveryServiceInstance = deliveryServiceInstance
+  }  
 
   watchRecordEvent = () => {
     return new Promise((resolve, reject) => {
-      this.registryInstance.Record((error, result) => {
-        if (error)
-          reject(error)
-        else
-          resolve(result)
+      this.registryInstance.Record((err, result) => {
+        if (err) reject(err)
+        else resolve(result)
       })
     })
+  }
+
+  watchConfirmationNeededEvent = () => {
+    return new Promise((resolve, reject) => {
+      this.deliveryServiceInstance.ConfirmationNeeded((err, result) => {
+        if (err) reject(err)
+        else resolve(result)
+      })
+    })
+  }
+
+  watchConfirmationEvent = () => {
+    return new Promise((resolve, reject) => {
+      this.deliveryServiceInstance.Confirmation((err, result) => {
+        if (err) reject(err)
+        else resolve(result)
+      })
+    })
+  }
+
+  recordEvent = () => {
+    return this.registryInstance.Record()
   }
 }
 
@@ -37,15 +58,16 @@ export default class DeliveryServiceWorker {
 
     this.wrapper = DS(this.ethProvider, false)
     this.actingAs = process.env.DS_SYSTEM_PRIV
+    this.simulateAssuranceBot = process.env.DS_ASSURANCE_PRIV
 
-    this.eventListener = new DeliveryServiceEventWathcer(this.registryInstance)
+    this.eventListener = new DeliveryServiceEventWathcer(this.registryInstance, this.deliveryServiceInstance)
 
     return this
   }
 
-  record = (vchash, date, centreDID, attendees, claimedTokens) => {
+  record = (vchash, date, centreDID, unitCode) => {
     return new Promise((resolve, reject) => {
-      this.wrapper.record(vchash, date, centreDID, attendees, claimedTokens, this.actingAs, (err, txid) => {
+      this.wrapper.record(vchash, date, centreDID, unitCode, this.actingAs, (err, txid) => {
         if (err) reject(err)
         else resolve(txid)
       })
@@ -63,7 +85,7 @@ export default class DeliveryServiceWorker {
 
   confirm = (vchash) => {
     return new Promise((resolve, reject) =>  {
-      this.wrapper.confirm(vchash, process.env.DS_ASSURANCE_PRIV, (err, txid) => {
+      this.wrapper.confirm(vchash, this.simulateAssuranceBot, (err, txid) => {
         if (err) reject(err)
         else resolve(txid)
       })

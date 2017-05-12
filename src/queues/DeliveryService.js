@@ -1,10 +1,16 @@
 'use-strict'
 
+import { keccak_256 } from 'js-sha3'
 import DeliveryServiceWorker from '../workers/DeliveryService'
 import {
   DELIVERY_SERVICE_RECORD,
+  DELIVERY_SERVICE_RECORD_LIST,
   DELIVERY_SERVICE_INIT_TRANSFER,
+  DELIVERY_SERVICE_CONFIRM_TRANSFER,
 } from '../jobs'
+
+// default
+const DEFAULT_UNIT_CODE = 1001
 
 export default class DeliveryServiceQueue {
   constructor(queue, ethProvider, storageProvider) {
@@ -18,35 +24,65 @@ export default class DeliveryServiceQueue {
   }
 
   runAll = () => {
+    this.listQueue()
     this.recordQueue()
     this.executeQueue()
+    this.confirmQueue()
+  }
+
+  listQueue = () => {
+    this.queue.process(DELIVERY_SERVICE_RECORD_LIST, async (job, done) => {
+      let centreDID = ''
+      try {
+        const centre = await this.storageProvider.getCentreModel().findOne({ id: job.data.centreId }).select('did').exec()
+        if (!centre || !centre.did)
+          throw new Error('Could not get centre DID')
+        centreDID = centre.did
+
+      } catch (e) {
+        return done(new Error(e))
+      }
+
+      const centreId = job.data.centreId,
+            singleClaims = job.data.singleClaims
+
+      singleClaims.forEach(verifiableClaim => {
+        const hash = keccak_256.create().update(JSON.stringify(verifiableClaim.claim)).hex()
+
+        if (verifiableClaim.claim.deliveredService.attendees[0].attended) {
+          this.queue.create(DELIVERY_SERVICE_RECORD, {
+            title: 'Store verifiable claim ' + hash,
+            hash,
+            centreDID,
+            attended: verifiableClaim.claim.deliveredService.attendees[0].attended,
+            date: verifiableClaim.claim.deliveredService.attendees[0].date,
+          }).priority('high').attempts(10).save()
+        }
+      })
+
+      return done(null, true)
+    })
   }
 
   recordQueue = () => {
     this.queue.process(DELIVERY_SERVICE_RECORD, async (job, done) => {
       try {
-        const vchash = job.data.vchash,
-              centreId = job.data.centreId,
-              verifiableClaim = JSON.parse(job.data.verifiableClaim),
-              date = 'testdate',
-              attendees = verifiableClaim.claim.deliveredService.attendees.length,
-              claimedTokens = attendees * 1
-
-        const centre = await this.storageProvider.getCentreModel()
-                                                    .findOne({ id: centreId })
-                                                    .select('did')
-                                                    .exec()
-
-        if (!centre || !centre.did)
-          return done(new Error('Could not get centre DID'))        
+        const date = job.data.date,
+              vchash = job.data.hash,
+              centreDID = job.data.centreDID,
+              attended = job.data.attended
         
         const Worker = new DeliveryServiceWorker(this.ethProvider).init(),
-              txid = await Worker.record(vchash, date, centre.did, attendees, claimedTokens),
+              txid = await Worker.record(vchash, date, centreDID, DEFAULT_UNIT_CODE),
               result = await Worker.getEventListener().watchRecordEvent()
+          
+        this.queue.create(DELIVERY_SERVICE_INIT_TRANSFER, {
+          title: 'Init multisig process for token transfer to ' + centreDID + ' for claim ' + vchash,
+          centreDID,
+          vchash,
+        }).priority('normal').attempts(10).save()
 
-        console.log(result)
-        
-        return done(null, txid)
+        return done(null, result.args)
 
       } catch (e) {
         return done(new Error(e))
@@ -55,6 +91,42 @@ export default class DeliveryServiceQueue {
   }
 
   executeQueue = () => {
+    this.queue.process(DELIVERY_SERVICE_INIT_TRANSFER, async (job, done) => {
+      const vchash = job.data.vchash,
+            centreDID = job.data.centreDID
 
+      try {
+        const Worker = new DeliveryServiceWorker(this.ethProvider).init(),
+              txid = await Worker.execute(centreDID.replace('did:', ''), 1, vchash),
+              result = await Worker.getEventListener().watchConfirmationNeededEvent()
+
+        this.queue.create(DELIVERY_SERVICE_CONFIRM_TRANSFER, {
+          title: 'Complete multisig process for token transfer to ' + centreDID + ' for claim ' + vchash,
+          vchash,
+        }).priority('normal').attempts(10).save()
+
+        return done(null, result.args)
+
+      } catch (e) {
+        return done(new Error(e))
+      }
+    })
+  }
+
+  confirmQueue = () => {
+    this.queue.process(DELIVERY_SERVICE_CONFIRM_TRANSFER, async (job, done) => {
+      const vchash = job.data.vchash
+      
+      try {
+        const Worker = new DeliveryServiceWorker(this.ethProvider).init(),
+              txid = await Worker.confirm(vchash),
+              result = await Worker.getEventListener().watchConfirmationEvent()
+        
+        return done(null, result.args)
+
+      } catch (e) {
+        return done(new Error(e))
+      }
+    })
   }
 }

@@ -54,7 +54,7 @@ export default class IdentityServiceQueue {
           objectId,
           did: 'did:' + result.args.did,
           ddo: result.args.ddo || '' 
-        }).priority('high').attempts(10).save()
+        }).priority('critical').attempts(10).save()
 
         return done(null, txid)
 
@@ -71,7 +71,7 @@ export default class IdentityServiceQueue {
         const wallet = EthWallet.generate(),
               pubkey = wallet.getPublicKeyString(),
               privkey = wallet.getPrivateKeyString(),
-              address = wallet.getAddressString() 
+              address = wallet.getAddressString()
 
         // create DID
         const txid = await EisWorker(address, this.ethProvider)
@@ -88,7 +88,7 @@ export default class IdentityServiceQueue {
             privkey,
             address,
           },
-        }).priority('high').attempts(10).save()
+        }).priority('critical').attempts(10).save()
 
         return done(null, txid)
 
@@ -122,7 +122,7 @@ export default class IdentityServiceQueue {
             privkey,
             address,
           },
-        }).priority('high').attempts(10).save()
+        }).priority('critical').attempts(10).save()
 
         return done(null, txid)
 
