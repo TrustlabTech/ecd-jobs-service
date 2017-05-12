@@ -65,10 +65,10 @@ export default class IdentityServiceStorageQueue {
             eth = job.data.eth,
             query = { id },
             update = { id, did, ddo, eth },
-            options = { upsert: true, new: true, setDefaultsOnInsert: true }
+            options = { upsert: true, new: true, setDefaultsOnInsert: false }
       
       try {
-        const record = this.storageProvider.getPractitionerModel().findOneAndUpdate(query, update, options)
+        const record = await this.storageProvider.getPractitionerModel().findOneAndUpdate(query, update, options)
         return done(null, { did: record.did, ddo: record.ddo })
       } catch (e) {
         return done(new Error(e))

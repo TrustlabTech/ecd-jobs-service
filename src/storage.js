@@ -4,7 +4,6 @@ import mongoose from 'mongoose'
 
 const VCSchema = new mongoose.Schema({
   hash: String,
-  claim: Object,
   verifiableClaim: Object,
 })
 
@@ -85,19 +84,19 @@ export default class StorageProvider {
 
   getChildModel() {
     return this.childModel
-  }  
+  }
 
   getCentreModel() {
     return this.centreModel
   }
 
-  getNewVCSchema(hash, claim, verifiableClaim) {
-    return {
-      hash, claim, verifiableClaim
-    }
-  }
-
   getPractitionerModel() {
     return this.practitionerModel
+  }
+
+  getNewVCSchema(hash, verifiableClaim) {
+    return {
+      hash, verifiableClaim
+    }
   }
 }
