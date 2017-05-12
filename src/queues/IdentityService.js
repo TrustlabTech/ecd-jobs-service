@@ -41,7 +41,7 @@ export default class IdentityServiceQueue {
 
   childrenQueue = () => {
     this.queue.process(IDENTITY_SERVICE_CHILDREN, async (job, done) => {
-      const objectId = mongoose.Types.ObjectId(job.data.objectId)
+      const id = job.data.id
 
       try {
         // create DID
@@ -50,11 +50,11 @@ export default class IdentityServiceQueue {
         const result = await EisEventWatcher(this.registryInstance)
         // store did
         this.queue.create(IDENTITY_SERVICE_CHILDREN_STORAGE, {
-          title: 'Store DID for child ' + job.data.objectId,
-          objectId,
+          title: 'Store DID for child ' + id,
+          id,
           did: 'did:' + result.args.did,
           ddo: result.args.ddo || '' 
-        }).priority('critical').attempts(10).save()
+        }).priority('critical').attempts(10).ttl(1000 * 5).save()
 
         return done(null, txid)
 
@@ -88,7 +88,7 @@ export default class IdentityServiceQueue {
             privkey,
             address,
           },
-        }).priority('critical').attempts(10).save()
+        }).priority('critical').attempts(10).ttl(1000 * 5).save()
 
         return done(null, txid)
 
@@ -122,7 +122,7 @@ export default class IdentityServiceQueue {
             privkey,
             address,
           },
-        }).priority('critical').attempts(10).save()
+        }).priority('critical').attempts(10).ttl(1000 * 5).save()
 
         return done(null, txid)
 

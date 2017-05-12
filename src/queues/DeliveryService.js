@@ -2,11 +2,13 @@
 
 import { keccak_256 } from 'js-sha3'
 import DeliveryServiceWorker from '../workers/DeliveryService'
+import DeliveryServiceStorageQueue from './DeliveryServiceStorage'
 import {
   DELIVERY_SERVICE_RECORD,
   DELIVERY_SERVICE_RECORD_LIST,
   DELIVERY_SERVICE_INIT_TRANSFER,
   DELIVERY_SERVICE_CONFIRM_TRANSFER,
+  DELIVERY_SERVICE_RECORD_STORE_SINGLE,
 } from '../jobs'
 
 // default
@@ -17,6 +19,7 @@ export default class DeliveryServiceQueue {
     this.queue = queue
     this.ethProvider = ethProvider
     this.storageProvider = storageProvider
+    this.storageQueue = new DeliveryServiceStorageQueue(this.queue, this.storageProvider)
   }
 
   init = () => {
@@ -28,6 +31,9 @@ export default class DeliveryServiceQueue {
     this.recordQueue()
     this.executeQueue()
     this.confirmQueue()
+
+    // run the corresponding storage queue
+    this.storageQueue.runAll()
   }
 
   listQueue = () => {
@@ -49,6 +55,15 @@ export default class DeliveryServiceQueue {
       singleClaims.forEach(verifiableClaim => {
         const hash = keccak_256.create().update(JSON.stringify(verifiableClaim.claim)).hex()
 
+        // db storage queue
+        this.queue.create(DELIVERY_SERVICE_RECORD_STORE_SINGLE, {
+          title: 'Store children verifiable claims',
+          hash,
+          verifiableClaim,
+          id: verifiableClaim.claim.deliveredService.attendees[0].id,
+        }).priority('low').attempts(10).ttl(1000 * 5).save()
+
+        // blockchain registry queue
         if (verifiableClaim.claim.deliveredService.attendees[0].attended) {
           this.queue.create(DELIVERY_SERVICE_RECORD, {
             title: 'Store verifiable claim ' + hash,
@@ -56,7 +71,7 @@ export default class DeliveryServiceQueue {
             centreDID,
             attended: verifiableClaim.claim.deliveredService.attendees[0].attended,
             date: verifiableClaim.claim.deliveredService.attendees[0].date,
-          }).priority('high').attempts(10).save()
+          }).priority('high').attempts(10).ttl(1000 * 60 * 2).save()
         }
       })
 
@@ -80,7 +95,7 @@ export default class DeliveryServiceQueue {
           title: 'Init multisig process for token transfer to ' + centreDID + ' for claim ' + vchash,
           centreDID,
           vchash,
-        }).priority('normal').attempts(10).save()
+        }).priority('normal').attempts(10).ttl(1000 * 60 * 2).save()
 
         return done(null, result.args)
 
@@ -103,7 +118,7 @@ export default class DeliveryServiceQueue {
         this.queue.create(DELIVERY_SERVICE_CONFIRM_TRANSFER, {
           title: 'Complete multisig process for token transfer to ' + centreDID + ' for claim ' + vchash,
           vchash,
-        }).priority('normal').attempts(10).save()
+        }).priority('normal').attempts(10).ttl(1000 * 60 * 2).save()
 
         return done(null, result.args)
 
