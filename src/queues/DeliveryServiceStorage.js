@@ -21,7 +21,7 @@ export default class DeliveryServiceStorage {
       const id = job.data.id,
             hash = job.data.hash,
             verifiableClaim = job.data.verifiableClaim,
-            VCEmbed = StorageProvider.getNewVCSchema(hash, verifiableClaim)
+            VCEmbed = this.storageProvider.getNewVCSchema(hash, verifiableClaim)
 
       const query = { id },
             update = { id, $push: { verifiableClaims: VCEmbed } },
