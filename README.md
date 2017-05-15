@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/TrustlabTech/ecd-jobs-service.png?label=ready&title=Ready)](https://waffle.io/TrustlabTech/ecd-jobs-service?utm_source=badge)
 # Jobs Queue for ECD API
 
 ## Endpoints
