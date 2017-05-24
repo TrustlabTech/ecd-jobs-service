@@ -52,11 +52,13 @@ export default class DeliveryServiceWorker {
   init = () => {
     const registryInterface = this.ethProvider.eth.contract(registryAbi),
           deliveryServiceInterface = this.ethProvider.eth.contract(deliveryServiceAbi)
+    
+    const gethHost = 'http://' + process.env.ETH_TX_HOST + ':' + process.env.ETH_TX_PORT
 
     this.registryInstance = registryInterface.at([registryAddress])
     this.deliveryServiceInstance = deliveryServiceInterface.at([deliveryServiceAddress])
 
-    this.wrapper = DS(this.ethProvider, false)
+    this.wrapper = DS(gethHost)
     this.actingAs = process.env.DS_SYSTEM_PRIV
     this.simulateAssuranceBot = process.env.DS_ASSURANCE_PRIV
 
@@ -65,31 +67,16 @@ export default class DeliveryServiceWorker {
     return this
   }
 
-  record = (vchash, date, centreDID, unitCode) => {
-    return new Promise((resolve, reject) => {
-      this.wrapper.record(vchash, date, centreDID, unitCode, this.actingAs, (err, txid) => {
-        if (err) reject(err)
-        else resolve(txid)
-      })
-    })
+  record = async (vchash, date, centreDID, unitCode) => {
+    return await this.wrapper.record(vchash, date, centreDID, unitCode, this.actingAs)
   }
 
-  execute = (to, value, vchash) => {
-    return new Promise((resolve, reject) => {
-      this.wrapper.execute(to, value, vchash, this.actingAs, (err, txid) => {
-        if (err) reject(err)
-        else resolve(txid)
-      })
-    })
+  execute = async (to, value, vchash) => {
+    return await this.wrapper.execute(to, value, vchash, this.actingAs)
   }
 
-  confirm = (vchash) => {
-    return new Promise((resolve, reject) =>  {
-      this.wrapper.confirm(vchash, this.simulateAssuranceBot, (err, txid) => {
-        if (err) reject(err)
-        else resolve(txid)
-      })
-    })
+  confirm = async (vchash) => {
+    return await this.wrapper.confirm(vchash, this.simulateAssuranceBot)
   }
 
   getEventListener = () => {

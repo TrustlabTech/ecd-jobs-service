@@ -19,21 +19,24 @@ const Logger = new (winston.Logger)({
   ]
 })
 
-export default (queue) => {
-  queue
-    .on('job enqueue', (id, type) => {
+export default (emitter) => {
+  emitter
+    .on('job enqueued', (id, type) => {
       Logger.log('info', 'Job %s of type %s got queued', id, type)
     })
-    .on('job complete', (id, result) => {
+    .on('job processed', (id, data) => {
+      Logger.log('info', 'Job %s started, data: %s', id, JSON.stringify(data))
+    })
+    .on('job completed', (id, result) => {
       Logger.log('info', 'Job %s completed, result: %s', id, typeof result === 'string' ? result : JSON.stringify(result))
     })
-    .on('job failed', (id, error) => {
-      Logger.log('error', 'Job %s failed, error: %s', id, typeof error === 'string' ? error : JSON.stringify(error))
+    .on('job failed', (job, error) => {
+      Logger.log('error', 'Job %s failed, error: %s', job.id, typeof error === 'string' ? error : JSON.stringify(error))
     })
-    .on('job failed attempt', (id, error, attempts) => { // eslint-disable-line no-unused-vars
-      Logger.log('error', 'Job %s failed (attempts: %d), error: %s', id, attempts, typeof error === 'string' ? error : JSON.stringify(error))
-    })
-    .on('job remove', (id) => {
+    .on('job removed', (id) => {
       Logger.log('info', 'Job %s removed', id)
+    })
+    .on('job unknown', (type) => {
+      Logger.log('info', 'WARNING: unknown job type %s', typeof type === 'string' ? type : JSON.stringify(type))
     })
 }

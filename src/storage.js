@@ -44,6 +44,12 @@ const practitionerSchema = new mongoose.Schema({
   },
 })
 
+const failedJobsSchema = new mongoose.Schema({
+  id: Number,
+  type: String,
+  data: Object,
+})
+
 export default class StorageProvider {
   constructor() {
     const 
@@ -57,7 +63,7 @@ export default class StorageProvider {
     this.connection = schema + username + ':' + password + '@' + host + ':' + port + '/' + database
   }
 
-  init() {
+  init = () => {
     // set native Promise
     mongoose.Promise = global.Promise
     const db = mongoose.connection
@@ -73,30 +79,45 @@ export default class StorageProvider {
       this.childModel = this.provider.model('Child', childSchema, 'children')
       this.centreModel = this.provider.model('Centre', centreSchema)
       this.practitionerModel = this.provider.model('Practitioner', practitionerSchema)
+      this.failedJobsModel = this.provider.model('FailedJob', failedJobsSchema)
     })
 
     return this
   }
 
-  getProvider() {
+  getProvider = () => {
     return this.provider
   }
 
-  getChildModel() {
+  getChildModel = () => {
     return this.childModel
   }
 
-  getCentreModel() {
+  getCentreModel = () => {
     return this.centreModel
   }
 
-  getPractitionerModel() {
+  getPractitionerModel = () => {
     return this.practitionerModel
   }
 
-  getNewVCSchema(hash, verifiableClaim) {
+  getFailedJobsModel = () => {
+    return this.failedJobsModel
+  }
+
+  getNewVCSchema = (hash, verifiableClaim) => {
     return {
       hash, verifiableClaim
     }
+  }
+
+  storeFailedJob = async (job) => {
+    const failedJob = new this.failedJobsModel({
+      id: job.id,
+      type: job.type,
+      data: job.data,
+    })
+
+    return await failedJob.save()
   }
 }

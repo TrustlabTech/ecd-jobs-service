@@ -20,115 +20,80 @@ export default class IdentityServiceQueue {
     this.queue = queue
     this.ethProvider = ethProvider
     this.storageQueue = new IdentityServiceStorageQueue(this.queue, storageProvider)
-  }
 
-  init = () => {
     // init Digital Registry Smart Contract instance
-    const registryInterface = this.ethProvider.eth.contract(registryAbi)
-    this.registryInstance = registryInterface.at([registryAddress])
-
-    return this
+    this.registryInstance = this.ethProvider.eth.contract(registryAbi).at([registryAddress])
   }
 
-  runAll = () => {
-    this.centresQueue()
-    this.childrenQueue()
-    this.practitionersQueue()
-    
-    // run the corresponding storage queue
-    this.storageQueue.runAll()
-  }
+  childrenQueue = async (job) => {
+    const id = job.data.id
 
-  childrenQueue = () => {
-    this.queue.process(IDENTITY_SERVICE_CHILDREN, async (job, done) => {
-      const id = job.data.id
-
-      try {
-        // create DID
-        const txid = await EisWorker(job.data.address, this.ethProvider)
-        // fire up the wathcher
-        const result = await EisEventWatcher(this.registryInstance)
-        // store did
-        this.queue.create(IDENTITY_SERVICE_CHILDREN_STORAGE, {
-          title: 'Store DID for child ' + id,
-          id,
-          did: 'did:' + result.args.did,
-          ddo: result.args.ddo || '' 
-        }).priority('critical').attempts(10).ttl(1000 * 5).save()
-
-        return done(null, txid)
-
-      } catch (e) {
-        return done(new Error(e))
-      }
+    // create DID
+    const txid = await EisWorker(job.data.address, this.ethProvider)
+    // fire up the wathcher
+    const result = await EisEventWatcher(this.registryInstance)
+    // store did
+    this.queue.create(IDENTITY_SERVICE_CHILDREN_STORAGE, {
+      title: 'Store DID for child ' + id,
+      id,
+      did: 'did:' + result.args.did,
+      ddo: result.args.ddo || '' 
     })
+
+    return txid
   }
 
-  centresQueue = () => {
-    this.queue.process(IDENTITY_SERVICE_CENTRES, async (job, done) => {
-      try {
-        // create a new Eth keypair first
-        const wallet = EthWallet.generate(),
-              pubkey = wallet.getPublicKeyString(),
-              privkey = wallet.getPrivateKeyString(),
-              address = wallet.getAddressString()
+  centresQueue = async (job) => {
+    // create a new Eth keypair first
+    const wallet = EthWallet.generate(),
+          pubkey = wallet.getPublicKeyString(),
+          privkey = wallet.getPrivateKeyString(),
+          address = wallet.getAddressString()
 
-        // create DID
-        const txid = await EisWorker(address, this.ethProvider)
-        // fire up the wathcher
-        const result = await EisEventWatcher(this.registryInstance)
-        // store did
-        this.queue.create(IDENTITY_SERVICE_CENTRES_STORAGE, {
-          title: 'Store DID for centre ' + job.data.id,
-          id: job.data.id,
-          did: 'did:' + result.args.did,
-          ddo: result.args.ddo || '',
-          eth: {
-            pubkey,
-            privkey,
-            address,
-          },
-        }).priority('critical').attempts(10).ttl(1000 * 5).save()
-
-        return done(null, txid)
-
-      } catch (e) {
-        return done(new Error(e))
-      }
+    // create DID
+    const txid = await EisWorker(address, this.ethProvider)
+    // fire up the wathcher
+    const result = await EisEventWatcher(this.registryInstance)
+    // store did
+    this.queue.create(IDENTITY_SERVICE_CENTRES_STORAGE, {
+      title: 'Store DID for centre ' + job.data.id,
+      id: job.data.id,
+      did: 'did:' + result.args.did,
+      ddo: result.args.ddo || '',
+      eth: {
+        pubkey,
+        privkey,
+        address,
+      },
     })
+
+    return txid
   }
 
-  practitionersQueue = () => {
-    this.queue.process(IDENTITY_SERVICE_PRACTITIONERS, async (job, done) => {
-      try {
-        // create a new Eth keypair first
-        const wallet = EthWallet.generate(),
-              pubkey = wallet.getPublicKeyString(),
-              privkey = wallet.getPrivateKeyString(),
-              address = wallet.getAddressString() 
+  practitionersQueue = async (job) => {
+    // create a new Eth keypair first
+    const wallet = EthWallet.generate(),
+          pubkey = wallet.getPublicKeyString(),
+          privkey = wallet.getPrivateKeyString(),
+          address = wallet.getAddressString() 
 
-        // create DID
-        const txid = await EisWorker(address, this.ethProvider)
-        // fire up the wathcher
-        const result = await EisEventWatcher(this.registryInstance)
-        // store did
-        this.queue.create(IDENTITY_SERVICE_PRACTITIONERS_STORAGE, {
-          title: 'Store DID for practitioner ' + job.data.id,
-          id: job.data.id,
-          did: 'did:' + result.args.did,
-          ddo: result.args.ddo || '',
-          eth: {
-            pubkey,
-            privkey,
-            address,
-          },
-        }).priority('critical').attempts(10).ttl(1000 * 5).save()
-
-        return done(null, txid)
-
-      } catch (e) {
-        return done(new Error(e))
-      }
+    // create DID
+    const txid = await EisWorker(address, this.ethProvider)
+    // fire up the wathcher
+    const result = await EisEventWatcher(this.registryInstance)
+    // store did
+    this.queue.create(IDENTITY_SERVICE_PRACTITIONERS_STORAGE, {
+      title: 'Store DID for practitioner ' + job.data.id,
+      id: job.data.id,
+      did: 'did:' + result.args.did,
+      ddo: result.args.ddo || '',
+      eth: {
+        pubkey,
+        privkey,
+        address,
+      },
     })
+
+    return txid
   }
 }
