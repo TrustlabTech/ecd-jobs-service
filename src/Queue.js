@@ -19,13 +19,21 @@ import {
   IDENTITY_SERVICE_PRACTITIONERS_STORAGE,
 } from './jobs'
 
+const TTL = 300 // seconds
+const now = () => {
+  return Math.floor(new Date().getTime() / 1000)
+}
+
 export default class Queue {
+
   constructor(ethProvider, storageProvider) {
     this.lastId = -1
     this.queue = []
     this.failed = []
     this.completed = []
     this.active = null
+    this.taskStart = {}
+    this.monitoring = {}
     this.emitter = new EventEmitter()
 
     this.deliveryServiceQueue = new DeliveryServiceQueue(this, ethProvider, storageProvider)
@@ -45,18 +53,22 @@ export default class Queue {
 
   processNext = async () => {
     if (this.queue.length === 0) {
+      this.failed.length > 0 && this.queue.push(this.failed.shift()) // retry failed tasks
       setTimeout(this.processNext, 1000)
       return
     }
-    
+
     const job = this.queue.shift()
+    this.active = job
 
     this.emitter.emit('job processed', job.id, job.data)
-    this.active = job
-    
+
+    this.startTtlMonitoring(job.id)
+
     try {
       let result = null
 
+      // delivery service
       if (job.type === DELIVERY_SERVICE_RECORD)
         result = await this.deliveryServiceQueue.recordQueue(job)
       else if (job.type === DELIVERY_SERVICE_RECORD_LIST)
@@ -65,7 +77,7 @@ export default class Queue {
         result = await this.deliveryServiceQueue.confirmQueue(job)
       else if (job.type === DELIVERY_SERVICE_RECORD_STORE_SINGLE)
         result = await this.deliveryServiceQueue.storeSingleVerifiableClaim(job)
-
+      // identity service
       else if (job.type === IDENTITY_SERVICE_CHILDREN)
         result = await this.identityServiceQueue.childrenQueue(job)
       else if (job.type === IDENTITY_SERVICE_CENTRES)
@@ -81,15 +93,48 @@ export default class Queue {
       else
         this.emitter.emit('job unknown', job.type)
       
+      // odd workaround
+      if (this.failed.find(f => { return f.id === job.id }))
+        return
+
       if (result !== null) {
         this.completed.push(job)
         this.emitter.emit('job completed', job.id, result)
-      }
+      }      
     } catch (e) {
       this.failed.push(job)
       this.emitter.emit('job failed', job, e.message)
     }
 
+    // tells TTL monitoring that job is completed
+    this.stopTtlMonitoring(job.id)
+
     setTimeout(this.processNext, 1000)
+  }
+
+  startTtlMonitoring(jobid) {
+    this.taskStart[jobid] = now()
+
+    this.monitoring[jobid] = setInterval(() => {
+      if (!this.taskStart[jobid] || this.active.id !== jobid)
+        this.clearMonitoringInterval(jobid) // task is completed
+      else if (this.active.id === jobid && now() - this.taskStart[jobid] > TTL) {
+        this.failed.push(this.active) // retry later
+        this.stopTtlMonitoring(jobid)
+        this.processNext() // go ahead
+      }
+    }, 500)
+  }
+
+  stopTtlMonitoring(jobid) {
+    delete this.taskStart[jobid]
+    this.clearMonitoringInterval(jobid)
+  }
+
+  clearMonitoringInterval(jobid) {
+    if (this.monitoring[jobid]) {
+      clearInterval(this.monitoring[jobid])
+      delete this.monitoring[jobid]
+    }
   }
 }
