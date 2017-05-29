@@ -20,6 +20,7 @@ import {
 } from './jobs'
 
 const TTL = 300 // seconds
+const MAX_RETRIES = 5
 const now = () => {
   return Math.floor(new Date().getTime() / 1000)
 }
@@ -53,12 +54,19 @@ export default class Queue {
 
   processNext = async () => {
     if (this.queue.length === 0) {
-      this.failed.length > 0 && this.queue.push(this.failed.shift()) // retry failed tasks
+      if (this.failed.length > 0) {
+        const retryJob = this.failed.shift()
+        if (retryJob.retries && retryJob.retries <= MAX_RETRIES)
+          this.queue.push(retryJob) // retry failed tasks
+      }
       setTimeout(this.processNext, 1000)
       return
     }
 
-    const job = this.queue.shift()
+    let job = this.queue.shift()
+    if (!job.retries)
+      job.retries = 0
+
     this.active = job
 
     this.emitter.emit('job processed', job.id, job.data)
@@ -102,6 +110,7 @@ export default class Queue {
         this.emitter.emit('job completed', job.id, result)
       }      
     } catch (e) {
+      job.retries++
       this.failed.push(job)
       this.emitter.emit('job failed', job, e.message)
     }
