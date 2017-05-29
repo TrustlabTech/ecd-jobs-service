@@ -36,6 +36,7 @@ export default class IdentityServiceStorageQueue {
           options = { upsert: true, new: true, setDefaultsOnInsert: false }
     
     const record = await this.storageProvider.getChildModel().findOneAndUpdate(query, update, options)
+    const v1Record = await this.submitToV1(id, did, 'child')
     
     return { did: record.did, ddo: record.ddo }
   }
@@ -50,6 +51,7 @@ export default class IdentityServiceStorageQueue {
           options = { upsert: true, new: true, setDefaultsOnInsert: false }
     
     const record = await this.storageProvider.getPractitionerModel().findOneAndUpdate(query, update, options)
+    const v1Record = await this.submitToV1(id, did, 'staff')
 
     return { did: record.did, ddo: record.ddo }
   }
