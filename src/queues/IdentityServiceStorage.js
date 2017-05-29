@@ -35,6 +35,9 @@ export default class IdentityServiceStorageQueue {
           update = { id, did, ddo },
           options = { upsert: true, new: true, setDefaultsOnInsert: false }
     
+    if (job.data.eth && Object.keys(job.data.eth).length > 0)
+      update.eth = job.data.eth
+    
     const record = await this.storageProvider.getChildModel().findOneAndUpdate(query, update, options)
     const v1Record = await this.submitToV1(id, did, 'child')
     

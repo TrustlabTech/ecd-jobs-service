@@ -27,9 +27,19 @@ export default class IdentityServiceQueue {
 
   childrenQueue = async (job) => {
     const id = job.data.id
+    
+    let address = job.data.address,
+        eth = {}
+
+    if (!address) {
+      const wallet = EthWallet.generate()
+      eth.pubkey = wallet.getPublicKeyString()
+      eth.privkey = wallet.getPrivateKeyString()
+      eth.address = address = wallet.getAddressString()
+    }
 
     // create DID
-    const txid = await EisWorker(job.data.address, this.ethProvider)
+    const txid = await EisWorker(address, this.ethProvider)
     // fire up the wathcher
     const result = await EisEventWatcher(this.registryInstance)
     // store did
@@ -37,7 +47,8 @@ export default class IdentityServiceQueue {
       title: 'Store DID for child ' + id,
       id,
       did: 'did:' + result.args.did,
-      ddo: result.args.ddo || '' 
+      ddo: result.args.ddo || '',
+      eth,
     })
 
     return txid
