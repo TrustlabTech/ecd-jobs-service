@@ -3,7 +3,7 @@
 import request from 'request'
 import mongoose from 'mongoose'
 
-const API_V1_BASE = 'http://staging.ecd.cnsnt.io/api/v1'
+const API_V1_BASE = 'http://ecd.cnsnt.io/api/v1'
 
 export default class IdentityServiceStorageQueue {
   constructor(queue, storageProvider) {
